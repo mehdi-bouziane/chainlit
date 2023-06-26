@@ -1,8 +1,10 @@
 import { ILLMSettings } from 'state/chat';
 import { Role } from 'state/user';
 
-// export const serverUrl = new URL('http://127.0.0.1:8000');
+//export const serverUrl = new URL('http://127.0.0.1:8000');
 const serverUrl = new URL(window.origin);
+
+console.log('TEEEEEEEEEEEEEEEEST', window.origin);
 
 const httpEndpoint = `${serverUrl.protocol}//${serverUrl.host}`;
 export const wsEndpoint = `${
