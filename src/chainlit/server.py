@@ -10,16 +10,29 @@ import webbrowser
 from contextlib import asynccontextmanager
 from watchfiles import awatch
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query, Depends, HTTPException, status
 from fastapi.responses import (
     HTMLResponse,
     JSONResponse,
     FileResponse,
     PlainTextResponse,
 )
+
 from fastapi_socketio import SocketManager
 from starlette.middleware.cors import CORSMiddleware
 import asyncio
+
+from socketio import WSGIApp
+from starlette.requests import Request
+import urllib.parse
+
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
+from jose import jwt, JWTError
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import HTTPBearer
+from pydantic import BaseModel
 
 from chainlit.context import emitter_var, loop_var
 from chainlit.config import config, load_module, reload_config, DEFAULT_HOST
@@ -125,6 +138,71 @@ socket = SocketManager(
     max_http_buffer_size=max_http_data_size,
 )
 
+# Définir le secret et l'algorithme de JWT
+SECRET_KEY = "opkfepokfpkpekfpoekkgfoprjgiojrtojighoijrtjkpkvpkkvp46546565631"
+ALGORITHM = "HS256"
+
+# OAuth2PasswordBearer est une classe qui génère un "scheme" spécial pour utiliser avec HTTPBearer.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Modifier la fonction pour accepter une requête Request
+async def get_current_user(token: str = Query(None, min_length=2, max_length=1000)):
+    try:
+        if token is None:
+                raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="credentials is empty"
+            )
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+            )
+        return username
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+        )
+
+# Modèle User
+class User(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# Mock user data
+fake_user = User(username="bea36a5ce64599ffe14b35795c02749be92e1f8b", password="a985317b41ce97c35a9d8a0dd72cf1cd")
+
+# Générateur de JWT
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+@app.post("/token", response_model=Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    if form_data.username != fake_user.username or form_data.password != fake_user.password:
+        logger.info(f"Incorrect username or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=30)
+    access_token = create_access_token(
+        data={"sub": form_data.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
 """
 -------------------------------------------------------------------------------
                               HTTP HANDLERS
@@ -208,7 +286,7 @@ async def project_settings():
 
 
 @app.get("/{path:path}")
-async def serve(path: str):
+async def serve(path: str, str = Depends(get_current_user)):
     """Serve the UI."""
     path_to_file = os.path.join(build_dir, path)
     if path != "" and os.path.exists(path_to_file):
