@@ -145,36 +145,43 @@ ALGORITHM = "HS256"
 # OAuth2PasswordBearer est une classe qui génère un "scheme" spécial pour utiliser avec HTTPBearer.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+
 # Modifier la fonction pour accepter une requête Request
 async def get_current_user(token: str = Query(None, min_length=2, max_length=1000)):
     try:
-        if token is None:
+        if token is not None:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            username: str = payload.get("sub")
+            if username is None:
                 raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="credentials is empty"
-            )
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
-            )
-        return username
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Could not validate credentials",
+                )
+            return username
     except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
         )
+
 
 # Modèle User
 class User(BaseModel):
     username: str
     password: str
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 # Mock user data
-fake_user = User(username="bea36a5ce64599ffe14b35795c02749be92e1f8b", password="a985317b41ce97c35a9d8a0dd72cf1cd")
+fake_user = User(
+    username="bea36a5ce64599ffe14b35795c02749be92e1f8b",
+    password="a985317b41ce97c35a9d8a0dd72cf1cd",
+)
+
 
 # Générateur de JWT
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -187,21 +194,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+
 @app.post("/token", response_model=Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    if form_data.username != fake_user.username or form_data.password != fake_user.password:
+    if (
+        form_data.username != fake_user.username
+        or form_data.password != fake_user.password
+    ):
         logger.info(f"Incorrect username or password")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     access_token_expires = timedelta(minutes=30)
     access_token = create_access_token(
         data={"sub": form_data.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
 
 """
 -------------------------------------------------------------------------------
@@ -286,13 +298,15 @@ async def project_settings():
 
 
 @app.get("/{path:path}")
-async def serve(path: str, str = Depends(get_current_user)):
+async def serve(path: str, str=Depends(get_current_user)):
     """Serve the UI."""
-    path_to_file = os.path.join(build_dir, path)
-    if path != "" and os.path.exists(path_to_file):
-        return FileResponse(path_to_file)
-    else:
-        return HTMLResponse(content=html_template, status_code=200)
+    logger.info(str)
+    if str is not None :
+        path_to_file = os.path.join(build_dir, path)
+        if path != "" and os.path.exists(path_to_file):
+            return FileResponse(path_to_file)
+        else:
+            return HTMLResponse(content=html_template, status_code=200)
 
 
 """
@@ -313,6 +327,7 @@ def need_session(id: str):
 
 @socket.on("connect")
 async def connect(sid, environ):
+    get_current_user()
     user_env = environ.get("HTTP_USER_ENV")
     authorization = environ.get("HTTP_AUTHORIZATION")
     cloud_client = None
