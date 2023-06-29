@@ -149,6 +149,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Modifier la fonction pour accepter une requête Request
 async def get_current_user(token: str = Query(None, min_length=2, max_length=1000)):
     try:
+        if token is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
+        
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -305,7 +311,6 @@ async def serveHome(current_user=Depends(get_current_user)):
 @app.get("/{path:path}")
 async def serve(path: str):
     """Serve the UI."""
-    logger.info(path)
     path_to_file = os.path.join(build_dir, path)
     if path != "" and os.path.exists(path_to_file):
         return FileResponse(path_to_file)
