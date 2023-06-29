@@ -295,11 +295,13 @@ async def project_settings():
         }
     )
 
+
 @app.get("/")
-async def serveHome(current_user = Depends(get_current_user)):
+async def serveHome(current_user=Depends(get_current_user)):
     """Serve the UI."""
     return HTMLResponse(content=html_template, status_code=200)
-    
+
+
 @app.get("/{path:path}")
 async def serve(path: str):
     """Serve the UI."""
@@ -307,7 +309,6 @@ async def serve(path: str):
     path_to_file = os.path.join(build_dir, path)
     if path != "" and os.path.exists(path_to_file):
         return FileResponse(path_to_file)
-
 
 
 """
