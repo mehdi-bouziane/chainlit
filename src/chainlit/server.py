@@ -149,15 +149,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # Modifier la fonction pour accepter une requête Request
 async def get_current_user(token: str = Query(None, min_length=2, max_length=1000)):
     try:
-        if token is not None:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            username: str = payload.get("sub")
-            if username is None:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Could not validate credentials",
-                )
-            return username
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
+        return username
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -296,17 +295,19 @@ async def project_settings():
         }
     )
 
-
-@app.get("/{path:path}")
-async def serve(path: str, str=Depends(get_current_user)):
+@app.get("/")
+async def serveHome(current_user = Depends(get_current_user)):
     """Serve the UI."""
-    logger.info(str)
-    if str is not None :
-        path_to_file = os.path.join(build_dir, path)
-        if path != "" and os.path.exists(path_to_file):
-            return FileResponse(path_to_file)
-        else:
-            return HTMLResponse(content=html_template, status_code=200)
+    return HTMLResponse(content=html_template, status_code=200)
+    
+@app.get("/{path:path}")
+async def serve(path: str):
+    """Serve the UI."""
+    logger.info(path)
+    path_to_file = os.path.join(build_dir, path)
+    if path != "" and os.path.exists(path_to_file):
+        return FileResponse(path_to_file)
+
 
 
 """
@@ -327,7 +328,6 @@ def need_session(id: str):
 
 @socket.on("connect")
 async def connect(sid, environ):
-    get_current_user()
     user_env = environ.get("HTTP_USER_ENV")
     authorization = environ.get("HTTP_AUTHORIZATION")
     cloud_client = None
