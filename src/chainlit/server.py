@@ -154,7 +154,7 @@ async def get_current_user(token: str = Query(None, min_length=2, max_length=100
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Could not validate credentials",
             )
-        
+
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:

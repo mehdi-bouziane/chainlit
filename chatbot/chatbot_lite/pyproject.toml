@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "Chatbot"
+version = "0.1.0"
+description = "A template Chainlit"
+authors = ["Mehdi Bouziane"]
+license = "MIT"
+readme = "README.md"
+
+
+[tool.poetry.dependencies]
+python = "^3.11"
+chainlit = { path = "../../src/" }
+pinecone-client = "^2.2.2"
+openai = "^0.27.8"
+langchain = "^0.0.220"
+
+#[[tool.poetry.source]]
+#name = "private"
+#url = "http://example.com/simple"
+#priority = "primary"
+python-jose = "^3.3.0"
+python-multipart = "^0.0.6"
+
+
+[[tool.poetry.source]]
+name = "PyPI"
+priority = "primary"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
